@@ -1,4 +1,4 @@
-// swift-tools-version: 6.0
+// swift-tools-version: 6.2
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
@@ -6,7 +6,7 @@ import PackageDescription
 let package = Package(
     name: "swiftsweeper",
     platforms: [
-        .macOS(.v14)  // Specify the minimum macOS version
+        .macOS(.v26)
     ],
     products: [
         .executable(name: "SwiftSweeper", targets: ["swiftsweeper"])

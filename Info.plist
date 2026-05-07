@@ -6,6 +6,8 @@
     <string>SwiftSweeper</string>
     <key>CFBundleIdentifier</key>
     <string>com.katistix.SwiftSweeper</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>
@@ -19,6 +21,6 @@
     <key>LSApplicationCategoryType</key>
     <string>public.app-category.utilities</string>
     <key>LSMinimumSystemVersion</key>
-    <string>13.0</string>
+    <string>26.0</string>
 </dict>
 </plist>

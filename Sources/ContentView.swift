@@ -35,9 +35,30 @@ struct Cell: Identifiable, Equatable {
 // MARK: - Game View Model (Logic - Unchanged)
 
 class GameViewModel: ObservableObject {
-    let rows = 12
-    let cols = 10
-    let mineCount = 15
+    enum Difficulty: String, CaseIterable {
+        case easy, medium, hard
+        var label: String {
+            switch self {
+            case .easy: "Easy"
+            case .medium: "Medium"
+            case .hard: "Hard"
+            }
+        }
+        var rows: Int {
+            switch self { case .easy: 9; case .medium: 13; case .hard: 16 }
+        }
+        var cols: Int {
+            switch self { case .easy: 9; case .medium: 13; case .hard: 16 }
+        }
+        var mineCount: Int {
+            switch self { case .easy: 10; case .medium: 25; case .hard: 45 }
+        }
+    }
+
+    @Published var difficulty: Difficulty = .easy
+    var rows: Int { difficulty.rows }
+    var cols: Int { difficulty.cols }
+    var mineCount: Int { difficulty.mineCount }
 
     @Published var grid: [[Cell]] = []
     @Published var gameState: GameState = .playing
@@ -47,7 +68,14 @@ class GameViewModel: ObservableObject {
     private var timer: Timer?
     private var isFirstTap: Bool = true
 
-    init() {
+    init(difficulty: Difficulty = .easy) {
+        self.difficulty = difficulty
+        resetGame()
+    }
+
+    func setDifficulty(_ d: Difficulty) {
+        guard d != difficulty else { return }
+        difficulty = d
         resetGame()
     }
 
@@ -68,15 +96,23 @@ class GameViewModel: ObservableObject {
         calculateNeighborCounts()
     }
     private func placeMines(avoidRow: Int, avoidCol: Int) {
-        var placedMines = 0
-        var potentialMineLocations = (0..<rows).flatMap { r in (0..<cols).map { c in (r, c) } }
-            .filter { $0 != avoidRow || $1 != avoidCol }
-        potentialMineLocations.shuffle()
-        for (r, c) in potentialMineLocations.prefix(mineCount) {
-            if isValid(row: r, col: c) {
-                grid[r][c].isMine = true
-                placedMines += 1
+        var safeCells = Set<Int>()
+        for dr in -1...1 {
+            for dc in -1...1 {
+                let nr = avoidRow + dr
+                let nc = avoidCol + dc
+                if isValid(row: nr, col: nc) {
+                    safeCells.insert(nr * cols + nc)
+                }
             }
+        }
+        var potentialMineLocations = (0..<rows).flatMap { r in (0..<cols).map { c in (r, c) } }
+            .filter { !safeCells.contains($0.0 * cols + $0.1) }
+        potentialMineLocations.shuffle()
+        var placedMines = 0
+        for (r, c) in potentialMineLocations.prefix(mineCount) {
+            grid[r][c].isMine = true
+            placedMines += 1
             if placedMines >= mineCount { break }
         }
         if placedMines < mineCount {
@@ -215,251 +251,315 @@ class GameViewModel: ObservableObject {
 
 // MARK: - Main Content View
 struct ContentView: View {
-    @StateObject private var viewModel = GameViewModel()
-    private let cellSize: CGFloat = 32
+    @StateObject private var viewModel = GameViewModel(
+        difficulty: GameViewModel.Difficulty(
+            rawValue: UserDefaults.standard.string(forKey: "difficulty") ?? "easy"
+        ) ?? .easy
+    )
+    @AppStorage("muted") private var muted: Bool = false
+    @AppStorage("difficulty") private var difficultyRaw: String = "easy"
+    @AppStorage("bestTime") private var bestTime: Int = 0
+    @AppStorage("totalWins") private var totalWins: Int = 0
+    @State private var isNewBest: Bool = false
+    private let cellSize: CGFloat = 28
+    private let outerPadding: CGFloat = 12
 
     var body: some View {
         ZStack {
-            // Cleaner Background
-            Color(nsColor: .windowBackgroundColor).ignoresSafeArea()
-            // Or a very subtle gradient if preferred
-            /*
-             LinearGradient(
-                 gradient: Gradient(colors: [Color(white: 0.95), Color(white: 0.85)]),
-                 startPoint: .top, endPoint: .bottom
-             ).ignoresSafeArea()
-             */
-
-            VStack(spacing: 12) {  // Slightly tighter spacing
-                InfoBarView(
-                    flagsRemaining: viewModel.mineCount - viewModel.flagsPlaced,
-                    elapsedTime: viewModel.elapsedTime,
-                    gameState: viewModel.gameState,
-                    resetAction: viewModel.resetGame
-                )
-                .padding(.horizontal, 15)
-                .padding(.vertical, 8)
-                .background(.regularMaterial)
-                .cornerRadius(10)  // Slightly less rounding
-                .shadow(color: .black.opacity(0.06), radius: 3, y: 1)  // Even subtler shadow
-
-                GridView(
-                    grid: viewModel.grid,
-                    cellSize: cellSize,
-                    cellTappedAction: viewModel.cellTapped,
-                    cellFlagAction: viewModel.cellFlagged
-                )
-                .padding(4)
-                .background(.regularMaterial)
-                .cornerRadius(8)
-                .shadow(color: .black.opacity(0.08), radius: 4, y: 2)  // Subtler shadow
-
-                Spacer()
+            VStack(spacing: outerPadding) {
+                topBar
+                hudPanel
+                gridPanel
             }
-            .padding()  // Keep overall padding
+            .padding(outerPadding)
+            .fixedSize()
 
             if viewModel.gameState != .playing {
                 GameOverView(
                     didWin: viewModel.gameState == .won,
+                    elapsedTime: viewModel.elapsedTime,
+                    bestTime: bestTime,
+                    totalWins: totalWins,
+                    isNewBest: isNewBest,
                     resetAction: viewModel.resetGame
                 )
-                .transition(.opacity.combined(with: .scale))  // Keep transition for overlay
+                .transition(.opacity.combined(with: .scale))
                 .zIndex(1)
             }
         }
-        // REMOVED .animation modifiers
-    }
-}
-
-// MARK: - Subviews
-
-struct InfoBarView: View {
-    let flagsRemaining: Int
-    let elapsedTime: Int
-    let gameState: GameState
-    let resetAction: () -> Void
-
-    var body: some View {
-        HStack {
-            Label {
-                Text("\(flagsRemaining)").font(
-                    .system(.title3, design: .monospaced).weight(.medium)
-                ).frame(minWidth: 40, alignment: .leading)
-            } icon: {
-                Image(systemName: "flag.fill").foregroundColor(.red)
+        .onChange(of: viewModel.gameState) { _, newState in
+            guard newState == .won else { return }
+            totalWins += 1
+            let t = viewModel.elapsedTime
+            if bestTime == 0 || t < bestTime {
+                bestTime = t
+                isNewBest = true
+            } else {
+                isNewBest = false
             }
+        }
+    }
+
+    private let topBarHeight: CGFloat = 32
+
+    private var topBar: some View {
+        HStack(spacing: 10) {
+            Menu {
+                ForEach(GameViewModel.Difficulty.allCases, id: \.self) { d in
+                    Button(d.label) {
+                        difficultyRaw = d.rawValue
+                        viewModel.setDifficulty(d)
+                    }
+                }
+            } label: {
+                HStack(spacing: 4) {
+                    Text(viewModel.difficulty.label)
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.primary)
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, 14)
+                .frame(height: topBarHeight)
+                .contentShape(Capsule())
+            }
+            .menuStyle(.button)
+            .buttonStyle(.plain)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .glassEffect(.regular.interactive(), in: Capsule())
+
             Spacer()
-            Button(action: resetAction) {
-                Image(systemName: faceImageName).font(.system(size: 28)).foregroundColor(faceColor)
-                // REMOVED conditional shadow on face
+
+            Button {
+                muted.toggle()
+            } label: {
+                Image(systemName: muted ? "speaker.slash.fill" : "speaker.wave.2.fill")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.primary)
+                    .frame(width: topBarHeight, height: topBarHeight)
             }
-            .buttonStyle(.plain).frame(width: 35, height: 35)
-            Spacer()
-            Label {
-                Text("\(elapsedTime)").font(.system(.title3, design: .monospaced).weight(.medium))
-                    .frame(minWidth: 40, alignment: .trailing)
-            } icon: {
-                Image(systemName: "timer").foregroundColor(.blue)
+            .buttonStyle(.plain)
+            .glassEffect(.regular.interactive(), in: Circle())
+        }
+    }
+
+    private let hudHeight: CGFloat = 40
+
+    private var hudPanel: some View {
+        HStack(spacing: 10) {
+            counter(
+                icon: "flag.fill",
+                tint: Color(red: 0.95, green: 0.36, blue: 0.36),
+                value: max(0, viewModel.mineCount - viewModel.flagsPlaced)
+            )
+            .glassEffect(.regular, in: Capsule())
+            Spacer(minLength: 0)
+            Button(action: viewModel.resetGame) {
+                Text(faceEmoji)
+                    .font(.system(size: 22))
+                    .frame(width: hudHeight, height: hudHeight)
+                    .contentShape(Circle())
             }
-        }
-        .foregroundStyle(.primary)
-    }
-    private var faceImageName: String {
-        switch gameState {
-        case .playing: "face.smiling"
-        case .won: "sunglasses"
-        case .lost: "face.dizzy"
-        }
-    }
-    private var faceColor: Color {
-        switch gameState {
-        case .playing: .yellow
-        case .won: .green
-        case .lost: .red
+            .buttonStyle(.plain)
+            .glassEffect(.regular.interactive(), in: Circle())
+            Spacer(minLength: 0)
+            counter(
+                icon: "timer",
+                tint: Color(red: 0.45, green: 0.78, blue: 1.0),
+                value: viewModel.elapsedTime
+            )
+            .glassEffect(.regular, in: Capsule())
         }
     }
-}
 
-struct GridView: View {
-    let grid: [[Cell]]
-    let cellSize: CGFloat
-    let cellTappedAction: (Int, Int) -> Void
-    let cellFlagAction: (Int, Int) -> Void
+    private func counter(icon: String, tint: Color, value: Int) -> some View {
+        let clamped = max(0, min(999, value))
+        return HStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(tint)
+            Text(String(format: "%03d", clamped))
+                .font(.system(size: 16, weight: .semibold, design: .monospaced))
+                .foregroundStyle(.primary)
+                .monospacedDigit()
+        }
+        .padding(.horizontal, 12)
+        .frame(height: hudHeight)
+    }
 
-    private var rowCount: Int { grid.count }
-    private var colCount: Int { grid.first?.count ?? 0 }
+    private var faceEmoji: String {
+        switch viewModel.gameState {
+        case .playing: "🙂"
+        case .won:     "😎"
+        case .lost:    "😵"
+        }
+    }
 
-    var body: some View {
-        VStack(spacing: 1) {
-            ForEach(0..<rowCount, id: \.self) { row in
-                HStack(spacing: 1) {
-                    ForEach(0..<colCount, id: \.self) { col in
-                        let cell = grid[row][col]
-                        #if os(macOS)
-                            RightClickableView(
-                                content: CleanedCellView(cell: cell, size: cellSize),  // Use CleanedCellView
-                                onLeftClick: { cellTappedAction(row, col) },
-                                onRightClick: { cellFlagAction(row, col) }
-                            )
-                            .frame(width: cellSize, height: cellSize)
-                        #else
-                            CleanedCellView(cell: cell, size: cellSize)  // Use CleanedCellView
-                                .frame(width: cellSize, height: cellSize)
-                                .onTapGesture { cellTappedAction(row, col) }
-                                .onLongPressGesture(minimumDuration: 0.3) {
-                                    cellFlagAction(row, col)
-                                }
-                        #endif
+    private var gridPanel: some View {
+        GlassEffectContainer(spacing: 2) {
+            VStack(spacing: 2) {
+                ForEach(0..<viewModel.grid.count, id: \.self) { row in
+                    HStack(spacing: 2) {
+                        ForEach(0..<viewModel.grid[row].count, id: \.self) { col in
+                            cellView(row: row, col: col)
+                        }
                     }
                 }
             }
+            .padding(8)
+            .background(
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(Color.black.opacity(0.28))
+                    .padding(6)
+            )
         }
-        .frame(
-            width: CGFloat(colCount) * (cellSize + 1) - 1,
-            height: CGFloat(rowCount) * (cellSize + 1) - 1
+        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 14))
+    }
+
+    @ViewBuilder
+    private func cellView(row: Int, col: Int) -> some View {
+        let cell = viewModel.grid[row][col]
+        let view = GlassCellView(cell: cell, size: cellSize)
+        #if os(macOS)
+        RightClickableView(
+            content: view,
+            onLeftClick:  { viewModel.cellTapped(row: row, col: col) },
+            onRightClick: { viewModel.cellFlagged(row: row, col: col) }
         )
-        .background(Color.secondary.opacity(0.4))  // Subtler grid line color
-        .clipped()
+        .frame(width: cellSize, height: cellSize)
+        #else
+        view.frame(width: cellSize, height: cellSize)
+            .onTapGesture { viewModel.cellTapped(row: row, col: col) }
+            .onLongPressGesture(minimumDuration: 0.3) {
+                viewModel.cellFlagged(row: row, col: col)
+            }
+        #endif
     }
 }
 
-// CLEANED Cell View Content
-struct CleanedCellView: View {
+// MARK: - Glass Cell
+
+struct GlassCellView: View {
     let cell: Cell
     let size: CGFloat
-
-    private let cornerRadiusRatio: CGFloat = 0.1
     private let contentScale: CGFloat = 0.55
 
     var body: some View {
-        ZStack {
-            // --- Cleaned Background ---
-            RoundedRectangle(cornerRadius: size * cornerRadiusRatio)
-                .fill(cellBackground)
-            // REMOVED the overlay stroke for cleaner look
-
-            // --- Cell Content (Flag, Mine, Number) ---
-            cellContent
-                .font(.system(size: size * contentScale, weight: .bold, design: .rounded))
-        }
-        .frame(width: size, height: size)
-    }
-
-    // Determine background (Color or Material)
-    private var cellBackground: AnyShapeStyle {
-        if cell.isRevealed {
-            if cell.isMine {
-                return AnyShapeStyle(Color.red.opacity(0.5))  // Slightly less intense red
+        let r = RoundedRectangle(cornerRadius: 6)
+        Group {
+            if cell.isRevealed {
+                content
+                    .frame(width: size, height: size)
+                    .background(
+                        cell.isMine ? AnyShapeStyle(Color.red.opacity(0.6))
+                                    : AnyShapeStyle(Color.black.opacity(0.45)),
+                        in: r
+                    )
             } else {
-                // Brighter gray for revealed cells - cleaner contrast with Material
-                return AnyShapeStyle(Color(white: 0.9))
+                content
+                    .frame(width: size, height: size)
+                    .glassEffect(.regular.interactive().tint(.white.opacity(0.18)), in: r)
             }
-        } else {
-            // Keep Material for glass effect on unrevealed
-            return AnyShapeStyle(.thinMaterial)
         }
+        .font(.system(size: size * contentScale))
     }
 
-    // Cell content view (logic unchanged, styling simplified)
-    @ViewBuilder private var cellContent: some View {
+    @ViewBuilder
+    private var content: some View {
         if cell.isFlagged && !cell.isRevealed {
-            Image(systemName: "flag.fill")
-                .resizable().scaledToFit()
-                .frame(width: size * contentScale)
-                .foregroundColor(.red.opacity(0.9))  // Slightly less intense flag
+            Text("🚩").font(.system(size: size * 0.6))
         } else if cell.isRevealed {
             if cell.isMine {
-                Image(systemName: "circle.fill")
-                    .resizable().scaledToFit()
-                    .frame(width: size * contentScale * 0.75)  // Adjusted size
-                    .foregroundColor(.black)
+                Text("💣").font(.system(size: size * 0.62))
             } else if cell.neighboringMines > 0 {
-                Text("\(cell.neighboringMines)")
-                    .foregroundColor(numberColor)
+                Text("\(cell.neighboringMines)").foregroundStyle(numberColor)
+            } else {
+                Color.clear
             }
+        } else {
+            Color.clear
         }
     }
 
-    // Number colors (unchanged logic)
     private var numberColor: Color {
         switch cell.neighboringMines {
         case 1: .blue
-        case 2: Color(red: 0.0, green: 0.5, blue: 0.1)
+        case 2: Color(red: 0.0, green: 0.6, blue: 0.2)
         case 3: .red
         case 4: Color(red: 0.0, green: 0.0, blue: 0.6)
         case 5: Color(red: 0.6, green: 0.0, blue: 0.0)
-        case 6: Color(red: 0.0, green: 0.5, blue: 0.5)
-        case 7: .black
-        case 8: Color(white: 0.4)
+        case 6: Color(red: 0.0, green: 0.55, blue: 0.55)
+        case 7: .primary
+        case 8: .secondary
         default: .clear
         }
     }
 }
 
-// GameOverView (Unchanged - retains prominence)
+// MARK: - Game Over
+
 struct GameOverView: View {
     let didWin: Bool
+    let elapsedTime: Int
+    let bestTime: Int
+    let totalWins: Int
+    let isNewBest: Bool
     let resetAction: () -> Void
 
     var body: some View {
-        VStack(spacing: 25) {
-            Image(systemName: didWin ? "party.popper.fill" : "explosion.fill").font(
-                .system(size: 60)
-            ).foregroundColor(didWin ? .yellow : .orange).shadow(
-                color: .black.opacity(0.3), radius: 5)
-            Text(didWin ? "Congratulations!" : "Game Over!").font(
-                .system(.largeTitle, design: .rounded).weight(.bold)
-            ).foregroundColor(didWin ? .green : .red)
-            Button(didWin ? "Play Again?" : "Try Again?", action: resetAction).font(
-                .title2.weight(.semibold)
-            ).buttonStyle(.borderedProminent).tint(didWin ? .green : .red).controlSize(.large)
-                .keyboardShortcut(.defaultAction).shadow(
-                    color: .black.opacity(0.2), radius: 5, y: 2)
+        VStack(spacing: 18) {
+            Text(didWin ? "🎉" : "💥")
+                .font(.system(size: 52))
+            Text(didWin ? "You won" : "Boom")
+                .font(.system(.title, design: .rounded).weight(.bold))
+
+            if didWin {
+                VStack(spacing: 8) {
+                    statRow(label: "Time", value: formatTime(elapsedTime))
+                    statRow(label: "Best", value: bestTime > 0 ? formatTime(bestTime) : "—")
+                    statRow(label: "Total wins", value: "\(totalWins)")
+                }
+                .padding(.horizontal, 18)
+                .padding(.vertical, 14)
+                .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 12))
+
+                if isNewBest {
+                    Label("New best time", systemImage: "trophy.fill")
+                        .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                        .foregroundStyle(.yellow)
+                }
+            }
+
+            Button(didWin ? "Play again" : "Try again", action: resetAction)
+                .font(.system(.body, design: .rounded).weight(.semibold))
+                .padding(.horizontal, 22)
+                .padding(.vertical, 10)
+                .glassEffect(.regular.interactive().tint(didWin ? .green : .red),
+                             in: Capsule())
+                .buttonStyle(.plain)
+                .keyboardShortcut(.defaultAction)
         }
-        .padding(.vertical, 40).padding(.horizontal, 50).background(.ultraThickMaterial)
-        .cornerRadius(25).overlay(
-            RoundedRectangle(cornerRadius: 25).stroke(.white.opacity(0.2), lineWidth: 1)
-        ).shadow(color: .black.opacity(0.3), radius: 15, y: 5)
+        .padding(.vertical, 32)
+        .padding(.horizontal, 36)
+        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 22))
+    }
+
+    private func statRow(label: String, value: String) -> some View {
+        HStack {
+            Text(label).foregroundStyle(.secondary)
+            Spacer()
+            Text(value).monospacedDigit().fontWeight(.semibold)
+        }
+        .font(.system(.callout, design: .rounded))
+        .frame(width: 180)
+    }
+
+    private func formatTime(_ s: Int) -> String {
+        let m = s / 60
+        let r = s % 60
+        return m > 0 ? String(format: "%d:%02d", m, r) : "\(r)s"
     }
 }
 
