@@ -15,20 +15,25 @@ enum GameState {
 }
 
 // Added Equatable conformance for potentially better ForEach performance
+enum CellMark: Equatable {
+    case none, flag, question
+}
+
 struct Cell: Identifiable, Equatable {
     let id = UUID()
     var isMine: Bool = false
     var isRevealed: Bool = false
-    var isFlagged: Bool = false
+    var mark: CellMark = .none
     var neighboringMines: Int = 0
 
-    // Equatable conformance implementation
+    var isFlagged: Bool { mark == .flag }
+    var isQuestioned: Bool { mark == .question }
+
     static func == (lhs: Cell, rhs: Cell) -> Bool {
-        // Only compare properties relevant to display changes
-        return lhs.id == rhs.id  // Essential for Identifiable
-            && lhs.isRevealed == rhs.isRevealed && lhs.isFlagged == rhs.isFlagged
-            && lhs.isMine == rhs.isMine  // Needed if mine appearance changes on reveal
-            && lhs.neighboringMines == rhs.neighboringMines  // Needed for number display
+        return lhs.id == rhs.id
+            && lhs.isRevealed == rhs.isRevealed && lhs.mark == rhs.mark
+            && lhs.isMine == rhs.isMine
+            && lhs.neighboringMines == rhs.neighboringMines
     }
 }
 
@@ -157,8 +162,14 @@ class GameViewModel: ObservableObject {
     func cellFlagged(row: Int, col: Int) {
         guard gameState == .playing, isValid(row: row, col: col) else { return }
         guard !grid[row][col].isRevealed else { return }
-        grid[row][col].isFlagged.toggle()
-        flagsPlaced += grid[row][col].isFlagged ? 1 : -1
+        let prev = grid[row][col].mark
+        switch prev {
+        case .none:     grid[row][col].mark = .flag
+        case .flag:     grid[row][col].mark = .question
+        case .question: grid[row][col].mark = .none
+        }
+        if prev == .flag { flagsPlaced -= 1 }
+        if grid[row][col].mark == .flag { flagsPlaced += 1 }
     }
     private func revealAdjacentCells(row: Int, col: Int) {
         for dr in -1...1 {
@@ -196,7 +207,7 @@ class GameViewModel: ObservableObject {
         for r in 0..<rows {
             for c in 0..<cols {
                 if grid[r][c].isMine && !grid[r][c].isFlagged {
-                    grid[r][c].isFlagged = true
+                    grid[r][c].mark = .flag
                     newFlags += 1
                 }
             }
@@ -470,6 +481,10 @@ struct GlassCellView: View {
     private var content: some View {
         if cell.isFlagged && !cell.isRevealed {
             Text("🚩").font(.system(size: size * 0.6))
+        } else if cell.isQuestioned && !cell.isRevealed {
+            Text("?")
+                .font(.system(size: size * 0.6, weight: .bold, design: .rounded))
+                .foregroundStyle(.primary)
         } else if cell.isRevealed {
             if cell.isMine {
                 Text("💣").font(.system(size: size * 0.62))
@@ -509,41 +524,41 @@ struct GameOverView: View {
     let resetAction: () -> Void
 
     var body: some View {
-        VStack(spacing: 18) {
+        VStack(spacing: 12) {
             Text(didWin ? "🎉" : "💥")
-                .font(.system(size: 52))
+                .font(.system(size: 36))
             Text(didWin ? "You won" : "Boom")
-                .font(.system(.title, design: .rounded).weight(.bold))
+                .font(.system(.title3, design: .rounded).weight(.bold))
 
             if didWin {
-                VStack(spacing: 8) {
+                VStack(spacing: 6) {
                     statRow(label: "Time", value: formatTime(elapsedTime))
                     statRow(label: "Best", value: bestTime > 0 ? formatTime(bestTime) : "—")
                     statRow(label: "Total wins", value: "\(totalWins)")
                 }
-                .padding(.horizontal, 18)
-                .padding(.vertical, 14)
-                .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 12))
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 10))
 
                 if isNewBest {
                     Label("New best time", systemImage: "trophy.fill")
-                        .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                        .font(.system(.caption, design: .rounded).weight(.semibold))
                         .foregroundStyle(.yellow)
                 }
             }
 
             Button(didWin ? "Play again" : "Try again", action: resetAction)
-                .font(.system(.body, design: .rounded).weight(.semibold))
-                .padding(.horizontal, 22)
-                .padding(.vertical, 10)
+                .font(.system(.callout, design: .rounded).weight(.semibold))
+                .padding(.horizontal, 18)
+                .padding(.vertical, 8)
                 .glassEffect(.regular.interactive().tint(didWin ? .green : .red),
                              in: Capsule())
                 .buttonStyle(.plain)
                 .keyboardShortcut(.defaultAction)
         }
-        .padding(.vertical, 32)
-        .padding(.horizontal, 36)
-        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 22))
+        .padding(.vertical, 22)
+        .padding(.horizontal, 26)
+        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 18))
     }
 
     private func statRow(label: String, value: String) -> some View {
@@ -552,8 +567,8 @@ struct GameOverView: View {
             Spacer()
             Text(value).monospacedDigit().fontWeight(.semibold)
         }
-        .font(.system(.callout, design: .rounded))
-        .frame(width: 180)
+        .font(.system(.subheadline, design: .rounded))
+        .frame(width: 150)
     }
 
     private func formatTime(_ s: Int) -> String {

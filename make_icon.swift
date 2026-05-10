@@ -39,14 +39,14 @@ ctx.drawRadialGradient(highlight,
                        options: [])
 
 let emoji = "🚩"
-let fontSize: CGFloat = 720
+let fontSize: CGFloat = 640
 let attrs: [NSAttributedString.Key: Any] = [
     .font: NSFont.systemFont(ofSize: fontSize)
 ]
 let str = NSAttributedString(string: emoji, attributes: attrs)
 let strSize = str.size()
-str.draw(at: NSPoint(x: (size.width - strSize.width) / 2,
-                     y: (size.height - strSize.height) / 2 - 40))
+str.draw(at: NSPoint(x: (size.width - strSize.width) / 2 + 50,
+                     y: (size.height - strSize.height) / 2 + 60))
 
 image.unlockFocus()
 
