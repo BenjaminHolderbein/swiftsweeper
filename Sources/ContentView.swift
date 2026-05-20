@@ -23,6 +23,7 @@ struct Cell: Identifiable, Equatable {
     let id = UUID()
     var isMine: Bool = false
     var isRevealed: Bool = false
+    var isExploded: Bool = false
     var mark: CellMark = .none
     var neighboringMines: Int = 0
 
@@ -32,13 +33,14 @@ struct Cell: Identifiable, Equatable {
     static func == (lhs: Cell, rhs: Cell) -> Bool {
         return lhs.id == rhs.id
             && lhs.isRevealed == rhs.isRevealed && lhs.mark == rhs.mark
-            && lhs.isMine == rhs.isMine
+            && lhs.isMine == rhs.isMine && lhs.isExploded == rhs.isExploded
             && lhs.neighboringMines == rhs.neighboringMines
     }
 }
 
 // MARK: - Game View Model (Logic - Unchanged)
 
+@MainActor
 class GameViewModel: ObservableObject {
     enum Difficulty: String, CaseIterable {
         case easy, medium, hard
@@ -153,6 +155,7 @@ class GameViewModel: ObservableObject {
         guard !grid[row][col].isRevealed && !grid[row][col].isFlagged else { return }
         grid[row][col].isRevealed = true
         if grid[row][col].isMine {
+            grid[row][col].isExploded = true
             triggerGameOver(won: false)
             return
         }
@@ -196,6 +199,9 @@ class GameViewModel: ObservableObject {
         gameState = won ? .won : .lost
         stopGameTimer()
         if !won { revealAllMines() } else { autoFlagRemainingMines() }
+        if !UserDefaults.standard.bool(forKey: "muted") {
+            NSSound(named: won ? "Funk" : "Bottle")?.play()
+        }
     }
     private func revealAllMines() {
         for r in 0..<rows {
@@ -218,8 +224,10 @@ class GameViewModel: ObservableObject {
         stopGameTimer()
         elapsedTime = 0
         timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-            guard let self = self else { return }
-            if self.gameState == .playing { self.elapsedTime += 1 } else { self.stopGameTimer() }
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                if self.gameState == .playing { self.elapsedTime += 1 } else { self.stopGameTimer() }
+            }
         }
     }
     private func stopGameTimer() {
@@ -350,6 +358,7 @@ struct ContentView: View {
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(.primary)
                     .frame(width: topBarHeight, height: topBarHeight)
+                    .contentShape(Circle())
             }
             .buttonStyle(.plain)
             .glassEffect(.regular.interactive(), in: Circle())
@@ -455,6 +464,7 @@ struct ContentView: View {
 struct GlassCellView: View {
     let cell: Cell
     let size: CGFloat
+    @Environment(\.colorScheme) private var colorScheme
     private let contentScale: CGFloat = 0.55
 
     var body: some View {
@@ -464,8 +474,8 @@ struct GlassCellView: View {
                 content
                     .frame(width: size, height: size)
                     .background(
-                        cell.isMine ? AnyShapeStyle(Color.red.opacity(0.6))
-                                    : AnyShapeStyle(Color.black.opacity(0.45)),
+                        cell.isExploded ? AnyShapeStyle(Color.red.opacity(0.6))
+                                        : AnyShapeStyle(revealedFill),
                         in: r
                     )
             } else {
@@ -498,17 +508,43 @@ struct GlassCellView: View {
         }
     }
 
+    private var revealedFill: Color {
+        // Dark mode keeps the dark glass cell; light mode lightens to a
+        // near-classic-Minesweeper gray so the classic palette reads correctly.
+        colorScheme == .dark ? Color.black.opacity(0.45)
+                             : Color(red: 0.75, green: 0.75, blue: 0.76).opacity(0.85)
+    }
+
     private var numberColor: Color {
-        switch cell.neighboringMines {
-        case 1: .blue
-        case 2: Color(red: 0.0, green: 0.6, blue: 0.2)
-        case 3: .red
-        case 4: Color(red: 0.0, green: 0.0, blue: 0.6)
-        case 5: Color(red: 0.6, green: 0.0, blue: 0.0)
-        case 6: Color(red: 0.0, green: 0.55, blue: 0.55)
-        case 7: .primary
-        case 8: .secondary
-        default: .clear
+        if colorScheme == .light {
+            // Classic Windows Minesweeper palette.
+            switch cell.neighboringMines {
+            case 1: Color(red: 0.00, green: 0.00, blue: 1.00)
+            case 2: Color(red: 0.00, green: 0.50, blue: 0.00)
+            case 3: Color(red: 1.00, green: 0.00, blue: 0.00)
+            case 4: Color(red: 0.00, green: 0.00, blue: 0.50)
+            case 5: Color(red: 0.50, green: 0.00, blue: 0.00)
+            case 6: Color(red: 0.00, green: 0.50, blue: 0.50)
+            case 7: Color(red: 0.00, green: 0.00, blue: 0.00)
+            case 8: Color(red: 0.50, green: 0.50, blue: 0.50)
+            default: .clear
+            }
+        } else {
+            // Dark-mode palette: strict classic hues, lifted lightness.
+            // Pairs 1/4 and 3/5 share hue (blue, red) and differ only in
+            // lightness — same relationship as classic, compressed into the
+            // legible range on a dark cell.
+            switch cell.neighboringMines {
+            case 1: Color(red: 0.40, green: 0.64, blue: 1.00) // bright blue
+            case 2: Color(red: 0.30, green: 0.82, blue: 0.35) // bright green
+            case 3: Color(red: 1.00, green: 0.30, blue: 0.30) // vivid red
+            case 4: Color(red: 0.20, green: 0.40, blue: 0.85) // deeper blue
+            case 5: Color(red: 0.67, green: 0.27, blue: 0.27) // brick red
+            case 6: Color(red: 0.30, green: 0.82, blue: 0.82) // bright teal
+            case 7: Color(red: 1.00, green: 1.00, blue: 1.00) // white
+            case 8: Color(red: 0.55, green: 0.55, blue: 0.55) // gray
+            default: .clear
+            }
         }
     }
 }
