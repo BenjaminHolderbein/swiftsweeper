@@ -1,6 +1,4 @@
 // swift-tools-version: 6.2
-// The swift-tools-version declares the minimum version of Swift required to build this package.
-
 import PackageDescription
 
 let package = Package(
@@ -9,12 +7,19 @@ let package = Package(
         .macOS(.v26)
     ],
     products: [
-        .executable(name: "SwiftSweeper", targets: ["swiftsweeper"])
+        .executable(name: "SwiftSweeper", targets: ["SwiftSweeper"])
     ],
     targets: [
-        // Targets are the basic building blocks of a package, defining a module or a test suite.
-        // Targets can depend on other targets in this package and products from dependencies.
+        .target(
+            name: "SwiftSweeperKit",
+            path: "Sources/SwiftSweeperKit"),
         .executableTarget(
-            name: "swiftsweeper")
+            name: "SwiftSweeper",
+            dependencies: ["SwiftSweeperKit"],
+            path: "Sources/SwiftSweeper"),
+        .testTarget(
+            name: "SwiftSweeperKitTests",
+            dependencies: ["SwiftSweeperKit"],
+            path: "Tests/SwiftSweeperKitTests"),
     ]
 )

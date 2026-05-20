@@ -9,7 +9,10 @@ ICNS = AppIcon.icns
 SWIFT_FILES = $(shell find Sources -name "*.swift")
 LSREGISTER = /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister
 
-.PHONY: all build run clean icon install uninstall
+.PHONY: all build run test clean icon install uninstall
+
+test:
+	swift test
 
 all: build run
 

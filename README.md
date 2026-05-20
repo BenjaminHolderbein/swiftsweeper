@@ -14,7 +14,7 @@ My opinion on *vibe coding* is that while yes, coding using AI gives you an adva
 ### HOW TO RUN
 1. Clone the repository
 ```bash
-git clone https://github.com/katitsix/swiftsweeper.git
+git clone https://github.com/BenjaminHolderbein/swiftsweeper.git
 ```
 2. Run the application using the Makefile
 ```bash
