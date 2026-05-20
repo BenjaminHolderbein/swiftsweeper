@@ -30,7 +30,12 @@ struct GlassCellView: View {
     @ViewBuilder
     private var content: some View {
         if cell.isFlagged && !cell.isRevealed {
-            Text("🚩").font(.system(size: size * 0.6))
+            // 🚩's visible mass sits in the upper-left of its bounding box, so
+            // a small right/up nudge — matched to the offset in make_icon.swift —
+            // makes it read as centered next to the "?" glyph.
+            Text("🚩")
+                .font(.system(size: size * 0.55))
+                .offset(x: size * 0.043, y: -size * 0.052)
         } else if cell.isQuestioned && !cell.isRevealed {
             Text("?")
                 .font(.system(size: size * 0.6, weight: .bold, design: .rounded))
