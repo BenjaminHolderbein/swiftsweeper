@@ -28,6 +28,18 @@ struct ContentView: View {
 
     var body: some View {
         ZStack {
+            // Invisible buttons that hold app-wide keyboard shortcuts.
+            // Menu items' .keyboardShortcut only fires while the menu is open.
+            Group {
+                Button("Easy")    { viewModel.setDifficulty(.easy)   } .keyboardShortcut("1", modifiers: .command)
+                Button("Medium")  { viewModel.setDifficulty(.medium) } .keyboardShortcut("2", modifiers: .command)
+                Button("Hard")    { viewModel.setDifficulty(.hard)   } .keyboardShortcut("3", modifiers: .command)
+                Button("Custom…") { showingCustomSheet = true        } .keyboardShortcut("0", modifiers: .command)
+            }
+            .frame(width: 0, height: 0)
+            .opacity(0)
+            .accessibilityHidden(true)
+
             VStack(spacing: outerPadding) {
                 topBar
                 hudPanel
