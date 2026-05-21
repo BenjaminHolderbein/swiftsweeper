@@ -166,6 +166,11 @@ struct ContentView: View {
                     }
                 }
             }
+            .background(GeometryReader { proxy in
+                Color.clear
+                    .onAppear { publishGridFrame(proxy.frame(in: .global)) }
+                    .onChange(of: proxy.frame(in: .global)) { _, new in publishGridFrame(new) }
+            })
             .padding(8)
             .background(
                 RoundedRectangle(cornerRadius: 6)
@@ -176,13 +181,20 @@ struct ContentView: View {
         .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 14))
     }
 
+    private func publishGridFrame(_ frameInGlobal: CGRect) {
+        ClickDispatcher.shared.viewModel = viewModel
+        ClickDispatcher.shared.rows = viewModel.rows
+        ClickDispatcher.shared.cols = viewModel.cols
+        ClickDispatcher.shared.cellSize = cellSize
+        ClickDispatcher.shared.cellSpacing = 2
+        ClickDispatcher.shared.gridFrameInWindowTL = frameInGlobal
+    }
+
     private func cellView(row: Int, col: Int) -> some View {
-        RightClickableView(
-            content: GlassCellView(cell: viewModel.grid[row][col], size: cellSize),
-            onLeftClick:  { viewModel.cellTapped(row: row, col: col) },
-            onRightClick: { viewModel.cellFlagged(row: row, col: col) }
-        )
-        .frame(width: cellSize, height: cellSize)
+        // Clicks are dispatched via ClickDispatcher in the app-level NSEvent
+        // monitor — the view here is visual only.
+        GlassCellView(cell: viewModel.grid[row][col], size: cellSize)
+            .frame(width: cellSize, height: cellSize)
     }
 }
 
