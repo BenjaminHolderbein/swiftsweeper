@@ -16,6 +16,7 @@ struct ContentView: View {
     @State private var showingCustomSheet = false
     @State private var focusedRow: Int = 0
     @State private var focusedCol: Int = 0
+    @State private var usingKeyboard: Bool = false
     @FocusState private var boardFocused: Bool
     @AppStorage("customRows")  private var storedCustomRows: Int = 12
     @AppStorage("customCols")  private var storedCustomCols: Int = 12
@@ -64,23 +65,31 @@ struct ContentView: View {
             focusedRow = viewModel.rows / 2
             focusedCol = viewModel.cols / 2
             boardFocused = true
+            // Hide the focus ring as soon as the mouse is used.
+            NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { event in
+                if usingKeyboard { usingKeyboard = false }
+                return event
+            }
         }
         .onChange(of: viewModel.difficulty) { _, _ in
             // Clamp focus when board size changes (e.g. new difficulty).
             focusedRow = min(focusedRow, viewModel.rows - 1)
             focusedCol = min(focusedCol, viewModel.cols - 1)
         }
-        .onKeyPress(.upArrow)    { focusedRow = max(0, focusedRow - 1); return .handled }
-        .onKeyPress(.downArrow)  { focusedRow = min(viewModel.rows - 1, focusedRow + 1); return .handled }
-        .onKeyPress(.leftArrow)  { focusedCol = max(0, focusedCol - 1); return .handled }
-        .onKeyPress(.rightArrow) { focusedCol = min(viewModel.cols - 1, focusedCol + 1); return .handled }
+        .onKeyPress(.upArrow)    { focusedRow = max(0, focusedRow - 1); usingKeyboard = true; return .handled }
+        .onKeyPress(.downArrow)  { focusedRow = min(viewModel.rows - 1, focusedRow + 1); usingKeyboard = true; return .handled }
+        .onKeyPress(.leftArrow)  { focusedCol = max(0, focusedCol - 1); usingKeyboard = true; return .handled }
+        .onKeyPress(.rightArrow) { focusedCol = min(viewModel.cols - 1, focusedCol + 1); usingKeyboard = true; return .handled }
         .onKeyPress(.space)      {
+            usingKeyboard = true
             viewModel.cellTapped(row: focusedRow, col: focusedCol); return .handled
         }
         .onKeyPress("f")         {
+            usingKeyboard = true
             viewModel.cellFlagged(row: focusedRow, col: focusedCol); return .handled
         }
         .onKeyPress(.return)     {
+            usingKeyboard = true
             if viewModel.gameState == .playing {
                 viewModel.chord(row: focusedRow, col: focusedCol)
             } else {
@@ -88,7 +97,7 @@ struct ContentView: View {
             }
             return .handled
         }
-        .onKeyPress("r")         { viewModel.resetGame(); return .handled }
+        .onKeyPress("r")         { viewModel.resetGame(); usingKeyboard = true; return .handled }
         .sheet(isPresented: $showingCustomSheet) {
             CustomBoardSheet(viewModel: viewModel)
         }
@@ -262,7 +271,7 @@ struct ContentView: View {
         GlassCellView(
             cell: viewModel.grid[row][col],
             size: cellSize,
-            isFocused: row == focusedRow && col == focusedCol && boardFocused
+            isFocused: row == focusedRow && col == focusedCol && boardFocused && usingKeyboard
         )
         .frame(width: cellSize, height: cellSize)
     }
