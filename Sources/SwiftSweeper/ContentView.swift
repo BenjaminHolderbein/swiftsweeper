@@ -12,6 +12,7 @@ struct ContentView: View {
     @AppStorage("difficulty") private var difficultyRaw: String = GameViewModel.Difficulty.easy.rawValue
     @AppStorage("bestTime") private var bestTime: Int = 0
     @AppStorage("totalWins") private var totalWins: Int = 0
+    @AppStorage("totalGames") private var totalGames: Int = 0
     @State private var isNewBest: Bool = false
     @State private var showingCustomSheet = false
     @State private var focusedRow: Int = 0
@@ -42,6 +43,7 @@ struct ContentView: View {
                     elapsedTime: viewModel.elapsedTime,
                     bestTime: bestTime,
                     totalWins: totalWins,
+                    totalGames: totalGames,
                     isNewBest: isNewBest,
                     resetAction: viewModel.resetGame
                 )
@@ -110,6 +112,7 @@ struct ContentView: View {
         .onChange(of: viewModel.gameState) { _, newState in
             switch newState {
             case .won:
+                totalGames += 1
                 totalWins += 1
                 let t = viewModel.elapsedTime
                 if bestTime == 0 || t < bestTime {
@@ -120,6 +123,7 @@ struct ContentView: View {
                 }
                 if !muted { NSSound(named: "Funk")?.play() }
             case .lost:
+                totalGames += 1
                 if !muted { NSSound(named: "Bottle")?.play() }
             case .playing:
                 break

@@ -5,8 +5,15 @@ struct GameOverView: View {
     let elapsedTime: Int
     let bestTime: Int
     let totalWins: Int
+    let totalGames: Int
     let isNewBest: Bool
     let resetAction: () -> Void
+
+    private var winPctText: String {
+        guard totalGames > 0 else { return "—" }
+        let pct = Double(totalWins) / Double(totalGames) * 100
+        return String(format: "%.0f%%", pct)
+    }
 
     var body: some View {
         VStack(spacing: 12) {
@@ -18,7 +25,8 @@ struct GameOverView: View {
                 VStack(spacing: 6) {
                     statRow(label: "Time", value: formatTime(elapsedTime))
                     statRow(label: "Best", value: bestTime > 0 ? formatTime(bestTime) : "—")
-                    statRow(label: "Total wins", value: "\(totalWins)")
+                    statRow(label: "Total wins", value: "\(totalWins) / \(totalGames)")
+                    statRow(label: "Win rate", value: winPctText)
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
