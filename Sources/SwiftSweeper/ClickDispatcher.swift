@@ -29,30 +29,33 @@ final class ClickDispatcher {
 
     @discardableResult
     func handle(_ event: NSEvent) -> Bool {
-        // State bookkeeping runs unconditionally so we never leak button-down
-        // bools across games (e.g. after a chord-induced game over, the
-        // mouseUp would otherwise be dropped and the next game would think
-        // the button is still held — phantom-chording the first click).
+        // Capture chord state from before this event's bookkeeping.
         let priorChord = chordFired
-        switch event.type {
-        case .leftMouseDown:  leftDown = true
-        case .rightMouseDown: rightDown = true
-        case .leftMouseUp:    leftDown = false
-        case .rightMouseUp:   rightDown = false
-        default: break
-        }
+
+        // Clear button-down flags on Ups unconditionally — even if the game
+        // just ended (e.g. chord-induced game over), so state doesn't leak.
+        if event.type == .leftMouseUp { leftDown = false }
+        if event.type == .rightMouseUp { rightDown = false }
         if !leftDown && !rightDown { chordFired = false }
 
         guard let vm = viewModel, let _ = event.window,
               gridFrameInWindowTL.width > 0,
               vm.gameState == .playing else { return false }
 
+        let onGrid = cell(at: event) != nil
+
         switch event.type {
         case .leftMouseDown:
+            // Pass through clicks that aren't on the grid so HUD buttons,
+            // the difficulty menu, and the smiley reset all work.
+            guard onGrid else { return false }
+            leftDown = true
             if rightDown { return fireChord(for: event, vm: vm) }
             return true  // consume; defer normal tap to mouseUp
 
         case .rightMouseDown:
+            guard onGrid else { return false }
+            rightDown = true
             if leftDown { return fireChord(for: event, vm: vm) }
             return true  // consume; defer normal flag to mouseUp
 
