@@ -35,6 +35,7 @@ struct GameOverView: View {
                 .font(.system(.callout, design: .rounded).weight(.semibold))
                 .padding(.horizontal, 18)
                 .padding(.vertical, 8)
+                .contentShape(Capsule())
                 .glassEffect(.regular.interactive().tint(didWin ? .green : .red), in: Capsule())
                 .buttonStyle(.plain)
                 .keyboardShortcut(.defaultAction)
