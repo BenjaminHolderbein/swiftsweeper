@@ -207,6 +207,35 @@ final class GameViewModelTests: XCTestCase {
         }
     }
 
+    func testChordCanCauseLoss() {
+        // Try a few seeds since cell selection is random; we need a
+        // numbered cell with at least N non-mine adjacent unrevealed cells.
+        for _ in 0..<20 {
+            let vm = GameViewModel(difficulty: .easy)
+            vm.cellTapped(row: 4, col: 4)
+            guard let (r, c) = numberedRevealed(vm) else { continue }
+            let n = vm.grid[r][c].neighboringMines
+            var nonMineAdjacent: [(Int, Int)] = []
+            for dr in -1...1 {
+                for dc in -1...1 where !(dr == 0 && dc == 0) {
+                    let nr = r + dr, nc = c + dc
+                    if nr >= 0, nr < vm.rows, nc >= 0, nc < vm.cols,
+                       !vm.grid[nr][nc].isMine, !vm.grid[nr][nc].isRevealed {
+                        nonMineAdjacent.append((nr, nc))
+                    }
+                }
+            }
+            guard nonMineAdjacent.count >= n else { continue }
+            for i in 0..<n {
+                vm.cellFlagged(row: nonMineAdjacent[i].0, col: nonMineAdjacent[i].1)
+            }
+            vm.chord(row: r, col: c)
+            XCTAssertEqual(vm.gameState, .lost, "chord with mis-flagged cells should lose")
+            return
+        }
+        XCTFail("could not construct a chord-loss scenario in 20 tries")
+    }
+
     func testChordNoopWhenFlagsDontMatch() {
         let vm = GameViewModel(difficulty: .easy)
         vm.cellTapped(row: 4, col: 4)

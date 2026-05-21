@@ -29,33 +29,39 @@ final class ClickDispatcher {
 
     @discardableResult
     func handle(_ event: NSEvent) -> Bool {
+        // State bookkeeping runs unconditionally so we never leak button-down
+        // bools across games (e.g. after a chord-induced game over, the
+        // mouseUp would otherwise be dropped and the next game would think
+        // the button is still held — phantom-chording the first click).
+        let priorChord = chordFired
+        switch event.type {
+        case .leftMouseDown:  leftDown = true
+        case .rightMouseDown: rightDown = true
+        case .leftMouseUp:    leftDown = false
+        case .rightMouseUp:   rightDown = false
+        default: break
+        }
+        if !leftDown && !rightDown { chordFired = false }
+
         guard let vm = viewModel, let _ = event.window,
               gridFrameInWindowTL.width > 0,
               vm.gameState == .playing else { return false }
 
         switch event.type {
         case .leftMouseDown:
-            leftDown = true
             if rightDown { return fireChord(for: event, vm: vm) }
             return true  // consume; defer normal tap to mouseUp
 
         case .rightMouseDown:
-            rightDown = true
             if leftDown { return fireChord(for: event, vm: vm) }
             return true  // consume; defer normal flag to mouseUp
 
         case .leftMouseUp:
-            leftDown = false
-            let wasChord = chordFired
-            if !rightDown { chordFired = false }
-            if wasChord { return true }
+            if priorChord { return true }
             return fire(.leftMouseUp, event: event, vm: vm)
 
         case .rightMouseUp:
-            rightDown = false
-            let wasChord = chordFired
-            if !leftDown { chordFired = false }
-            if wasChord { return true }
+            if priorChord { return true }
             return fire(.rightMouseUp, event: event, vm: vm)
 
         default:
