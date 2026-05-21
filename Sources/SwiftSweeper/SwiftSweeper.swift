@@ -10,7 +10,7 @@ fileprivate final class AppDelegate: NSObject, NSApplicationDelegate {
         // ourselves. Bypasses AppKit's per-cell NSHostingView delivery, which
         // is unreliable under Liquid Glass when `clickCount` accumulates
         // across button types (e.g. right-click cycle followed by left-click).
-        NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { event in
+        NSEvent.addLocalMonitorForEvents(matching: [.leftMouseUp, .rightMouseUp]) { event in
             let handled = MainActor.assumeIsolated { ClickDispatcher.shared.dispatch(event) }
             return handled ? nil : event
         }

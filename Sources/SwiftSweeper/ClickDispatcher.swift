@@ -49,8 +49,8 @@ final class ClickDispatcher {
         guard xInCell <= cellSize, yInCell <= cellSize else { return false }
 
         switch event.type {
-        case .leftMouseDown:  vm.cellTapped(row: row, col: col);  return true
-        case .rightMouseDown: vm.cellFlagged(row: row, col: col); return true
+        case .leftMouseUp:  vm.cellTapped(row: row, col: col);  return true
+        case .rightMouseUp: vm.cellFlagged(row: row, col: col); return true
         default: return false
         }
     }
