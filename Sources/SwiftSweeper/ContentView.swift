@@ -223,10 +223,17 @@ struct ContentView: View {
                 }
             }
             .background(GeometryReader { proxy in
-                WindowReader { window in
+                WindowReader(
+                    onChange: { window in
+                        ClickDispatcher.shared.window = window
+                        publishGridFrame(proxy.frame(in: .global), window: window)
+                    }
+                ) { _ in
                     Color.clear
-                        .onAppear { publishGridFrame(proxy.frame(in: .global), window: window) }
-                        .onChange(of: proxy.frame(in: .global)) { _, new in publishGridFrame(new, window: window) }
+                        .onAppear { publishGridFrame(proxy.frame(in: .global), window: nil) }
+                        .onChange(of: proxy.frame(in: .global)) { _, new in
+                            publishGridFrame(new, window: ClickDispatcher.shared.window)
+                        }
                 }
             })
             .padding(8)
