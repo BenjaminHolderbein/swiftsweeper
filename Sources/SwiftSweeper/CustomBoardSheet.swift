@@ -17,6 +17,11 @@ struct CustomBoardSheet: View {
 
     private var maxMines: Int { GameViewModel.maxMines(rows: rows, cols: cols) }
 
+    private func startGame() {
+        viewModel.setCustom(rows: rows, cols: cols, mines: mines)
+        dismiss()
+    }
+
     var body: some View {
         VStack(spacing: 16) {
             Text("Custom board")
@@ -39,11 +44,9 @@ struct CustomBoardSheet: View {
                 }
                 .buttonStyle(.plain)
                 .glassEffect(.regular.interactive(), in: Capsule())
+                .keyboardShortcut(.cancelAction)
 
-                Button(action: {
-                    viewModel.setCustom(rows: rows, cols: cols, mines: mines)
-                    dismiss()
-                }) {
+                Button(action: startGame) {
                     Text("Start")
                         .font(.system(.callout, design: .rounded).weight(.semibold))
                         .padding(.horizontal, 18).padding(.vertical, 8)
@@ -76,7 +79,7 @@ struct CustomBoardSheet: View {
                 .multilineTextAlignment(.trailing)
                 .monospacedDigit()
                 .frame(width: 60)
-                .onSubmit { clamp(value, to: range) }
+                .onSubmit { clamp(value, to: range); startGame() }
             Stepper("", value: value, in: range)
                 .labelsHidden()
         }

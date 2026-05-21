@@ -28,18 +28,6 @@ struct ContentView: View {
 
     var body: some View {
         ZStack {
-            // Invisible buttons that hold app-wide keyboard shortcuts.
-            // Menu items' .keyboardShortcut only fires while the menu is open.
-            Group {
-                Button("Easy")    { viewModel.setDifficulty(.easy)   } .keyboardShortcut("1", modifiers: .command)
-                Button("Medium")  { viewModel.setDifficulty(.medium) } .keyboardShortcut("2", modifiers: .command)
-                Button("Hard")    { viewModel.setDifficulty(.hard)   } .keyboardShortcut("3", modifiers: .command)
-                Button("Custom…") { showingCustomSheet = true        } .keyboardShortcut("0", modifiers: .command)
-            }
-            .frame(width: 0, height: 0)
-            .opacity(0)
-            .accessibilityHidden(true)
-
             VStack(spacing: outerPadding) {
                 topBar
                 hudPanel
@@ -110,6 +98,9 @@ struct ContentView: View {
         .sheet(isPresented: $showingCustomSheet) {
             CustomBoardSheet(viewModel: viewModel)
         }
+        .onReceive(NotificationCenter.default.publisher(for: .showCustomBoard)) { _ in
+            showingCustomSheet = true
+        }
         .onChange(of: viewModel.difficulty) { _, d in
             difficultyRaw = d.rawValue
         }
@@ -139,11 +130,11 @@ struct ContentView: View {
     private var topBar: some View {
         HStack(spacing: 10) {
             Menu {
-                Button("Easy")   { viewModel.setDifficulty(.easy) }   .keyboardShortcut("1", modifiers: .command)
-                Button("Medium") { viewModel.setDifficulty(.medium) } .keyboardShortcut("2", modifiers: .command)
-                Button("Hard")   { viewModel.setDifficulty(.hard) }   .keyboardShortcut("3", modifiers: .command)
+                Button("Easy")    { viewModel.setDifficulty(.easy) }
+                Button("Medium")  { viewModel.setDifficulty(.medium) }
+                Button("Hard")    { viewModel.setDifficulty(.hard) }
                 Divider()
-                Button("Custom…") { showingCustomSheet = true } .keyboardShortcut("0", modifiers: .command)
+                Button("Custom…") { showingCustomSheet = true }
             } label: {
                 HStack(spacing: 4) {
                     Text(viewModel.difficulty.label)
@@ -176,7 +167,6 @@ struct ContentView: View {
             }
             .buttonStyle(.plain)
             .glassEffect(.regular.interactive(), in: Circle())
-            .keyboardShortcut("m", modifiers: .command)
             .accessibilityLabel(muted ? "Unmute" : "Mute")
         }
     }
@@ -201,7 +191,6 @@ struct ContentView: View {
             }
             .buttonStyle(.plain)
             .glassEffect(.regular.interactive(), in: Circle())
-            .keyboardShortcut("r", modifiers: .command)
             .accessibilityLabel("New game")
             .accessibilityValue(faceAccessibilityValue)
             Spacer(minLength: 0)

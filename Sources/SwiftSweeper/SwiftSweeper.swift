@@ -1,3 +1,4 @@
+import SwiftSweeperKit
 import SwiftUI
 import AppKit
 
@@ -28,5 +29,48 @@ struct SwiftSweeper: App {
             ContentView()
         }
         .windowResizability(.contentSize)
+        .commands {
+            CommandMenu("Game") {
+                Button("New Game") {
+                    ClickDispatcher.shared.viewModel?.resetGame()
+                }
+                .keyboardShortcut("r", modifiers: .command)
+
+                Divider()
+
+                Button("Easy") {
+                    ClickDispatcher.shared.viewModel?.setDifficulty(.easy)
+                }
+                .keyboardShortcut("1", modifiers: .command)
+
+                Button("Medium") {
+                    ClickDispatcher.shared.viewModel?.setDifficulty(.medium)
+                }
+                .keyboardShortcut("2", modifiers: .command)
+
+                Button("Hard") {
+                    ClickDispatcher.shared.viewModel?.setDifficulty(.hard)
+                }
+                .keyboardShortcut("3", modifiers: .command)
+
+                Button("Custom…") {
+                    NotificationCenter.default.post(name: .showCustomBoard, object: nil)
+                }
+                .keyboardShortcut("0", modifiers: .command)
+
+                Divider()
+
+                Button("Toggle Mute") {
+                    let key = "muted"
+                    UserDefaults.standard.set(!UserDefaults.standard.bool(forKey: key),
+                                              forKey: key)
+                }
+                .keyboardShortcut("m", modifiers: .command)
+            }
+        }
     }
+}
+
+extension Notification.Name {
+    static let showCustomBoard = Notification.Name("SwiftSweeper.showCustomBoard")
 }
