@@ -22,6 +22,9 @@ final class ClickDispatcher {
     var rows: Int = 9
     var cols: Int = 9
     weak var viewModel: GameViewModel?
+    /// The NSWindow the grid lives in. Sheets/popovers have their own windows
+    /// — events in those windows must not be intercepted by the dispatcher.
+    weak var window: NSWindow?
 
     private var leftDown = false
     private var rightDown = false
@@ -38,7 +41,9 @@ final class ClickDispatcher {
         if event.type == .rightMouseUp { rightDown = false }
         if !leftDown && !rightDown { chordFired = false }
 
-        guard let vm = viewModel, let _ = event.window,
+        guard let vm = viewModel,
+              let eventWindow = event.window,
+              eventWindow === window,
               gridFrameInWindowTL.width > 0,
               vm.gameState == .playing else { return false }
 

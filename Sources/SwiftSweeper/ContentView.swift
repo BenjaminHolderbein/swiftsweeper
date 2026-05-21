@@ -191,9 +191,11 @@ struct ContentView: View {
                 }
             }
             .background(GeometryReader { proxy in
-                Color.clear
-                    .onAppear { publishGridFrame(proxy.frame(in: .global)) }
-                    .onChange(of: proxy.frame(in: .global)) { _, new in publishGridFrame(new) }
+                WindowReader { window in
+                    Color.clear
+                        .onAppear { publishGridFrame(proxy.frame(in: .global), window: window) }
+                        .onChange(of: proxy.frame(in: .global)) { _, new in publishGridFrame(new, window: window) }
+                }
             })
             .padding(8)
             .background(
@@ -205,13 +207,14 @@ struct ContentView: View {
         .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 14))
     }
 
-    private func publishGridFrame(_ frameInGlobal: CGRect) {
+    private func publishGridFrame(_ frameInGlobal: CGRect, window: NSWindow?) {
         ClickDispatcher.shared.viewModel = viewModel
         ClickDispatcher.shared.rows = viewModel.rows
         ClickDispatcher.shared.cols = viewModel.cols
         ClickDispatcher.shared.cellSize = cellSize
         ClickDispatcher.shared.cellSpacing = 2
         ClickDispatcher.shared.gridFrameInWindowTL = frameInGlobal
+        ClickDispatcher.shared.window = window
     }
 
     private func cellView(row: Int, col: Int) -> some View {
