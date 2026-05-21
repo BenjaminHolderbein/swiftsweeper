@@ -66,10 +66,7 @@ struct ContentView: View {
             focusedCol = viewModel.cols / 2
             boardFocused = true
             // Hide the focus ring as soon as the mouse is used.
-            NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { event in
-                if usingKeyboard { usingKeyboard = false }
-                return event
-            }
+            ClickDispatcher.shared.onMouseUsed = { usingKeyboard = false }
         }
         .onChange(of: viewModel.difficulty) { _, _ in
             // Clamp focus when board size changes (e.g. new difficulty).

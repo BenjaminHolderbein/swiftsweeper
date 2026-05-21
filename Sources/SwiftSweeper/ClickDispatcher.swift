@@ -25,6 +25,9 @@ final class ClickDispatcher {
     /// The NSWindow the grid lives in. Sheets/popovers have their own windows
     /// — events in those windows must not be intercepted by the dispatcher.
     weak var window: NSWindow?
+    /// Fired on every mouseDown the dispatcher receives in the main window.
+    /// ContentView uses this to hide the keyboard focus ring on mouse use.
+    var onMouseUsed: (() -> Void)?
 
     private var leftDown = false
     private var rightDown = false
@@ -40,6 +43,14 @@ final class ClickDispatcher {
         if event.type == .leftMouseUp { leftDown = false }
         if event.type == .rightMouseUp { rightDown = false }
         if !leftDown && !rightDown { chordFired = false }
+
+        // Signal mouse use on every left/right mouseDown in the main window,
+        // regardless of game state — so the keyboard focus ring hides
+        // immediately when the user reaches for the mouse.
+        if event.window === window,
+           event.type == .leftMouseDown || event.type == .rightMouseDown {
+            onMouseUsed?()
+        }
 
         guard let vm = viewModel,
               let eventWindow = event.window,
