@@ -2,7 +2,9 @@
 
 A native macOS Minesweeper that respects the classic game and embraces Liquid Glass. Pure SwiftUI, no ads, no in-app purchases.
 
-<!-- ![screenshot](docs/screenshot.png) -->
+<p align="center">
+  <img src="docs/screenshot.png" alt="SwiftSweeper on macOS" width="420">
+</p>
 
 ## Features
 
