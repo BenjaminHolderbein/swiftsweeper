@@ -65,17 +65,32 @@ struct CustomBoardSheet: View {
     }
 
     private func row(_ label: String, value: Binding<Int>, range: ClosedRange<Int>) -> some View {
-        HStack {
+        HStack(spacing: 8) {
             Text(label)
                 .font(.system(.subheadline, design: .rounded))
                 .foregroundStyle(.secondary)
+                .frame(width: 50, alignment: .leading)
             Spacer()
-            Stepper(value: value, in: range) {
-                Text("\(value.wrappedValue)")
-                    .font(.system(.body, design: .monospaced))
-                    .monospacedDigit()
-                    .frame(minWidth: 40, alignment: .trailing)
-            }
+            TextField("", value: value, formatter: clampFormatter(range))
+                .textFieldStyle(.roundedBorder)
+                .multilineTextAlignment(.trailing)
+                .monospacedDigit()
+                .frame(width: 60)
+                .onSubmit { clamp(value, to: range) }
+            Stepper("", value: value, in: range)
+                .labelsHidden()
         }
+    }
+
+    private func clamp(_ value: Binding<Int>, to range: ClosedRange<Int>) {
+        value.wrappedValue = min(max(value.wrappedValue, range.lowerBound), range.upperBound)
+    }
+
+    private func clampFormatter(_ range: ClosedRange<Int>) -> NumberFormatter {
+        let f = NumberFormatter()
+        f.allowsFloats = false
+        f.minimum = NSNumber(value: range.lowerBound)
+        f.maximum = NSNumber(value: range.upperBound)
+        return f
     }
 }
