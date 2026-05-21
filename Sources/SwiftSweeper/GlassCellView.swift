@@ -14,6 +14,7 @@ struct GlassCellView: View {
             if cell.isRevealed {
                 content
                     .frame(width: size, height: size)
+                    .overlay { focusRing(r) }
                     .background(
                         cell.isExploded ? AnyShapeStyle(Color.red.opacity(0.6))
                                         : AnyShapeStyle(revealedFill),
@@ -22,15 +23,18 @@ struct GlassCellView: View {
             } else {
                 content
                     .frame(width: size, height: size)
+                    .overlay { focusRing(r) }
                     .glassEffect(.regular.interactive().tint(.white.opacity(0.18)), in: r)
             }
         }
         .font(.system(size: size * contentScale))
-        .overlay {
-            if isFocused {
-                RoundedRectangle(cornerRadius: 6)
-                    .strokeBorder(.tint, lineWidth: 2)
-            }
+    }
+
+    @ViewBuilder
+    private func focusRing(_ shape: RoundedRectangle) -> some View {
+        if isFocused {
+            shape.strokeBorder(.tint, lineWidth: 2)
+                .allowsHitTesting(false)
         }
     }
 
