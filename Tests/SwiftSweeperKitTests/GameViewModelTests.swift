@@ -168,6 +168,81 @@ final class GameViewModelTests: XCTestCase {
         XCTAssertFalse(vm.isTimerRunning, "timer must stop when difficulty changes")
     }
 
+    func testChordRevealsAdjacentWhenFlagsMatch() {
+        let vm = GameViewModel(difficulty: .easy)
+        // Force a known layout: tap (4,4) to place mines (avoiding 3x3 around it).
+        vm.cellTapped(row: 4, col: 4)
+        // Find a revealed numbered cell at the cascade boundary.
+        guard let (r, c) = numberedRevealed(vm) else { return XCTFail("no numbered revealed cell") }
+        let n = vm.grid[r][c].neighboringMines
+        // Flag exactly the adjacent mines.
+        for dr in -1...1 {
+            for dc in -1...1 where !(dr == 0 && dc == 0) {
+                let nr = r + dr, nc = c + dc
+                if nr >= 0, nr < vm.rows, nc >= 0, nc < vm.cols, vm.grid[nr][nc].isMine {
+                    vm.cellFlagged(row: nr, col: nc)
+                }
+            }
+        }
+        var flags = 0
+        for dr in -1...1 {
+            for dc in -1...1 where !(dr == 0 && dc == 0) {
+                let nr = r + dr, nc = c + dc
+                if nr >= 0, nr < vm.rows, nc >= 0, nc < vm.cols, vm.grid[nr][nc].isFlagged {
+                    flags += 1
+                }
+            }
+        }
+        XCTAssertEqual(flags, n, "test setup: flagged count should equal neighbor mine count")
+        vm.chord(row: r, col: c)
+        // After chord, every non-flagged adjacent cell should be revealed.
+        for dr in -1...1 {
+            for dc in -1...1 where !(dr == 0 && dc == 0) {
+                let nr = r + dr, nc = c + dc
+                guard nr >= 0, nr < vm.rows, nc >= 0, nc < vm.cols else { continue }
+                if !vm.grid[nr][nc].isFlagged {
+                    XCTAssertTrue(vm.grid[nr][nc].isRevealed, "(\(nr),\(nc)) should be revealed after chord")
+                }
+            }
+        }
+    }
+
+    func testChordNoopWhenFlagsDontMatch() {
+        let vm = GameViewModel(difficulty: .easy)
+        vm.cellTapped(row: 4, col: 4)
+        guard let (r, c) = numberedRevealed(vm) else { return XCTFail() }
+        // Don't place flags. Snapshot grid.
+        let before = vm.grid
+        vm.chord(row: r, col: c)
+        XCTAssertEqual(vm.grid, before, "chord with wrong flag count must do nothing")
+    }
+
+    func testCustomBoardClampsAndPlays() {
+        let vm = GameViewModel()
+        vm.setCustom(rows: 5, cols: 5, mines: 3)
+        XCTAssertEqual(vm.difficulty, .custom)
+        XCTAssertEqual(vm.rows, 5)
+        XCTAssertEqual(vm.cols, 5)
+        XCTAssertEqual(vm.mineCount, 3)
+        vm.cellTapped(row: 2, col: 2)
+        XCTAssertEqual(totalMines(vm), 3)
+        XCTAssertEqual(vm.gameState, .playing)
+    }
+
+    func testCustomBoardEnforcesMineUpperBound() {
+        let vm = GameViewModel()
+        // Way too many mines for 5x5
+        vm.setCustom(rows: 5, cols: 5, mines: 100)
+        XCTAssertEqual(vm.mineCount, GameViewModel.maxMines(rows: 5, cols: 5))
+    }
+
+    func testCustomBoardEnforcesSideLimits() {
+        let vm = GameViewModel()
+        vm.setCustom(rows: 1, cols: 999, mines: 1)
+        XCTAssertEqual(vm.rows, GameViewModel.minBoardSide)
+        XCTAssertEqual(vm.cols, GameViewModel.maxBoardSide)
+    }
+
     func testResetGameClearsEverything() {
         let vm = GameViewModel(difficulty: .easy)
         vm.cellTapped(row: 0, col: 0)
@@ -197,6 +272,16 @@ final class GameViewModelTests: XCTestCase {
     private func firstMine(_ vm: GameViewModel) -> (Int, Int)? {
         for r in 0..<vm.rows {
             for c in 0..<vm.cols where vm.grid[r][c].isMine { return (r, c) }
+        }
+        return nil
+    }
+
+    private func numberedRevealed(_ vm: GameViewModel) -> (Int, Int)? {
+        for r in 0..<vm.rows {
+            for c in 0..<vm.cols {
+                let cell = vm.grid[r][c]
+                if cell.isRevealed && cell.neighboringMines > 0 { return (r, c) }
+            }
         }
         return nil
     }

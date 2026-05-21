@@ -2,19 +2,20 @@ import AppKit
 import SwiftSweeperKit
 
 /// Centralized click dispatcher. ContentView publishes the grid's frame and
-/// the App-level NSEvent monitor calls `dispatch(_:)`. We look up the cell
-/// at the click coordinate and call the view model directly.
+/// the App-level NSEvent monitor calls `handle(_:)`. We compute which cell
+/// the click hit and call the view model directly.
 ///
 /// Why this exists: under Liquid Glass + rapid trackpad clicks across
 /// button types, `event.clickCount` accumulates and AppKit silently drops
-/// the events before they reach our NSHostingView's `mouseDown` override.
-/// Bypassing per-cell event delivery entirely sidesteps the problem.
+/// events before they reach NSHostingView's `mouseDown` override.
+/// Bypassing per-cell event delivery sidesteps the problem.
+///
+/// Tap and flag fire on mouseUp (drag-off-grid cancels). Chord fires on
+/// the second mouseDown when both buttons are held simultaneously.
 @MainActor
 final class ClickDispatcher {
     static let shared = ClickDispatcher()
 
-    /// Grid frame as reported by SwiftUI's `.global` coordinate space —
-    /// on macOS this is window-relative coords with TOP-LEFT origin.
     var gridFrameInWindowTL: CGRect = .zero
     var cellSize: CGFloat = 28
     var cellSpacing: CGFloat = 2
@@ -22,36 +23,79 @@ final class ClickDispatcher {
     var cols: Int = 9
     weak var viewModel: GameViewModel?
 
-    @discardableResult
-    func dispatch(_ event: NSEvent) -> Bool {
-        guard let vm = viewModel, let window = event.window,
-              gridFrameInWindowTL.width > 0 else { return false }
-        // Don't capture clicks while the game-over card is showing — it
-        // overlays the grid and its buttons need to receive their own clicks.
-        guard vm.gameState == .playing else { return false }
+    private var leftDown = false
+    private var rightDown = false
+    private var chordFired = false
 
-        // event.locationInWindow is in AppKit window coords (bottom-left).
-        // SwiftUI's .global frame on macOS is window-relative top-left.
-        // Convert by flipping y against the window frame height.
+    @discardableResult
+    func handle(_ event: NSEvent) -> Bool {
+        guard let vm = viewModel, let _ = event.window,
+              gridFrameInWindowTL.width > 0,
+              vm.gameState == .playing else { return false }
+
+        switch event.type {
+        case .leftMouseDown:
+            leftDown = true
+            if rightDown { return fireChord(for: event, vm: vm) }
+            return true  // consume; defer normal tap to mouseUp
+
+        case .rightMouseDown:
+            rightDown = true
+            if leftDown { return fireChord(for: event, vm: vm) }
+            return true  // consume; defer normal flag to mouseUp
+
+        case .leftMouseUp:
+            leftDown = false
+            let wasChord = chordFired
+            if !rightDown { chordFired = false }
+            if wasChord { return true }
+            return fire(.leftMouseUp, event: event, vm: vm)
+
+        case .rightMouseUp:
+            rightDown = false
+            let wasChord = chordFired
+            if !leftDown { chordFired = false }
+            if wasChord { return true }
+            return fire(.rightMouseUp, event: event, vm: vm)
+
+        default:
+            return false
+        }
+    }
+
+    private func fire(_ kind: NSEvent.EventType, event: NSEvent, vm: GameViewModel) -> Bool {
+        guard let (row, col) = cell(at: event) else { return false }
+        switch kind {
+        case .leftMouseUp:  vm.cellTapped(row: row, col: col)
+        case .rightMouseUp: vm.cellFlagged(row: row, col: col)
+        default: return false
+        }
+        return true
+    }
+
+    private func fireChord(for event: NSEvent, vm: GameViewModel) -> Bool {
+        chordFired = true
+        guard let (row, col) = cell(at: event) else { return true }
+        vm.chord(row: row, col: col)
+        return true
+    }
+
+    /// Returns the (row, col) of the cell under the event's window-coord
+    /// position, or nil if outside the grid.
+    private func cell(at event: NSEvent) -> (Int, Int)? {
+        guard let window = event.window else { return nil }
         let pBL = event.locationInWindow
         let pTL = CGPoint(x: pBL.x, y: window.frame.height - pBL.y)
-
-        guard gridFrameInWindowTL.contains(pTL) else { return false }
-
+        guard gridFrameInWindowTL.contains(pTL) else { return nil }
         let xInGrid = pTL.x - gridFrameInWindowTL.minX
         let yInGrid = pTL.y - gridFrameInWindowTL.minY
         let stride = cellSize + cellSpacing
         let col = Int(xInGrid / stride)
         let row = Int(yInGrid / stride)
-        guard row >= 0, row < rows, col >= 0, col < cols else { return false }
+        guard row >= 0, row < rows, col >= 0, col < cols else { return nil }
         let xInCell = xInGrid - CGFloat(col) * stride
         let yInCell = yInGrid - CGFloat(row) * stride
-        guard xInCell <= cellSize, yInCell <= cellSize else { return false }
-
-        switch event.type {
-        case .leftMouseUp:  vm.cellTapped(row: row, col: col);  return true
-        case .rightMouseUp: vm.cellFlagged(row: row, col: col); return true
-        default: return false
-        }
+        guard xInCell <= cellSize, yInCell <= cellSize else { return nil }
+        return (row, col)
     }
 }

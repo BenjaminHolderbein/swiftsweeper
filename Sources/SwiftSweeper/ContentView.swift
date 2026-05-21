@@ -13,6 +13,10 @@ struct ContentView: View {
     @AppStorage("bestTime") private var bestTime: Int = 0
     @AppStorage("totalWins") private var totalWins: Int = 0
     @State private var isNewBest: Bool = false
+    @State private var showingCustomSheet = false
+    @AppStorage("customRows")  private var storedCustomRows: Int = 12
+    @AppStorage("customCols")  private var storedCustomCols: Int = 12
+    @AppStorage("customMines") private var storedCustomMines: Int = 20
     private let cellSize: CGFloat = 28
     private let outerPadding: CGFloat = 12
     private let topBarHeight: CGFloat = 32
@@ -41,9 +45,27 @@ struct ContentView: View {
                 .zIndex(1)
             }
         }
+        .onAppear {
+            // Restore custom dimensions from @AppStorage on first appearance.
+            viewModel.customRows = storedCustomRows
+            viewModel.customCols = storedCustomCols
+            viewModel.customMines = storedCustomMines
+            // If difficulty was persisted as .custom, re-apply with restored dims.
+            if viewModel.difficulty == .custom {
+                viewModel.setCustom(rows: storedCustomRows,
+                                    cols: storedCustomCols,
+                                    mines: storedCustomMines)
+            }
+        }
+        .sheet(isPresented: $showingCustomSheet) {
+            CustomBoardSheet(viewModel: viewModel)
+        }
         .onChange(of: viewModel.difficulty) { _, d in
             difficultyRaw = d.rawValue
         }
+        .onChange(of: viewModel.customRows)  { _, v in storedCustomRows  = v }
+        .onChange(of: viewModel.customCols)  { _, v in storedCustomCols  = v }
+        .onChange(of: viewModel.customMines) { _, v in storedCustomMines = v }
         .onChange(of: viewModel.gameState) { _, newState in
             switch newState {
             case .won:
@@ -67,9 +89,11 @@ struct ContentView: View {
     private var topBar: some View {
         HStack(spacing: 10) {
             Menu {
-                ForEach(GameViewModel.Difficulty.allCases, id: \.self) { d in
+                ForEach([GameViewModel.Difficulty.easy, .medium, .hard], id: \.self) { d in
                     Button(d.label) { viewModel.setDifficulty(d) }
                 }
+                Divider()
+                Button("Custom…") { showingCustomSheet = true }
             } label: {
                 HStack(spacing: 4) {
                     Text(viewModel.difficulty.label)
