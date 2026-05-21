@@ -26,6 +26,9 @@ final class ClickDispatcher {
     func dispatch(_ event: NSEvent) -> Bool {
         guard let vm = viewModel, let window = event.window,
               gridFrameInWindowTL.width > 0 else { return false }
+        // Don't capture clicks while the game-over card is showing — it
+        // overlays the grid and its buttons need to receive their own clicks.
+        guard vm.gameState == .playing else { return false }
 
         // event.locationInWindow is in AppKit window coords (bottom-left).
         // SwiftUI's .global frame on macOS is window-relative top-left.
