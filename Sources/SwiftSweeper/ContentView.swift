@@ -14,6 +14,9 @@ struct ContentView: View {
     @AppStorage("totalWins") private var totalWins: Int = 0
     @State private var isNewBest: Bool = false
     @State private var showingCustomSheet = false
+    @State private var focusedRow: Int = 0
+    @State private var focusedCol: Int = 0
+    @FocusState private var boardFocused: Bool
     @AppStorage("customRows")  private var storedCustomRows: Int = 12
     @AppStorage("customCols")  private var storedCustomCols: Int = 12
     @AppStorage("customMines") private var storedCustomMines: Int = 20
@@ -45,18 +48,47 @@ struct ContentView: View {
                 .zIndex(1)
             }
         }
+        .focusable()
+        .focusEffectDisabled()
+        .focused($boardFocused)
         .onAppear {
-            // Restore custom dimensions from @AppStorage on first appearance.
             viewModel.customRows = storedCustomRows
             viewModel.customCols = storedCustomCols
             viewModel.customMines = storedCustomMines
-            // If difficulty was persisted as .custom, re-apply with restored dims.
             if viewModel.difficulty == .custom {
                 viewModel.setCustom(rows: storedCustomRows,
                                     cols: storedCustomCols,
                                     mines: storedCustomMines)
             }
+            // Center the keyboard cursor and grab focus.
+            focusedRow = viewModel.rows / 2
+            focusedCol = viewModel.cols / 2
+            boardFocused = true
         }
+        .onChange(of: viewModel.difficulty) { _, _ in
+            // Clamp focus when board size changes (e.g. new difficulty).
+            focusedRow = min(focusedRow, viewModel.rows - 1)
+            focusedCol = min(focusedCol, viewModel.cols - 1)
+        }
+        .onKeyPress(.upArrow)    { focusedRow = max(0, focusedRow - 1); return .handled }
+        .onKeyPress(.downArrow)  { focusedRow = min(viewModel.rows - 1, focusedRow + 1); return .handled }
+        .onKeyPress(.leftArrow)  { focusedCol = max(0, focusedCol - 1); return .handled }
+        .onKeyPress(.rightArrow) { focusedCol = min(viewModel.cols - 1, focusedCol + 1); return .handled }
+        .onKeyPress(.space)      {
+            viewModel.cellTapped(row: focusedRow, col: focusedCol); return .handled
+        }
+        .onKeyPress("f")         {
+            viewModel.cellFlagged(row: focusedRow, col: focusedCol); return .handled
+        }
+        .onKeyPress(.return)     {
+            if viewModel.gameState == .playing {
+                viewModel.chord(row: focusedRow, col: focusedCol)
+            } else {
+                viewModel.resetGame()
+            }
+            return .handled
+        }
+        .onKeyPress("r")         { viewModel.resetGame(); return .handled }
         .sheet(isPresented: $showingCustomSheet) {
             CustomBoardSheet(viewModel: viewModel)
         }
@@ -220,8 +252,12 @@ struct ContentView: View {
     private func cellView(row: Int, col: Int) -> some View {
         // Clicks are dispatched via ClickDispatcher in the app-level NSEvent
         // monitor — the view here is visual only.
-        GlassCellView(cell: viewModel.grid[row][col], size: cellSize)
-            .frame(width: cellSize, height: cellSize)
+        GlassCellView(
+            cell: viewModel.grid[row][col],
+            size: cellSize,
+            isFocused: row == focusedRow && col == focusedCol && boardFocused
+        )
+        .frame(width: cellSize, height: cellSize)
     }
 }
 

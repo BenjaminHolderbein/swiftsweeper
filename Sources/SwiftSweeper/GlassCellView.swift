@@ -4,6 +4,7 @@ import SwiftUI
 struct GlassCellView: View {
     let cell: Cell
     let size: CGFloat
+    var isFocused: Bool = false
     @Environment(\.colorScheme) private var colorScheme
     private let contentScale: CGFloat = 0.55
 
@@ -25,6 +26,12 @@ struct GlassCellView: View {
             }
         }
         .font(.system(size: size * contentScale))
+        .overlay {
+            if isFocused {
+                RoundedRectangle(cornerRadius: 6)
+                    .strokeBorder(.tint, lineWidth: 2)
+            }
+        }
     }
 
     @ViewBuilder
