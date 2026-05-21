@@ -127,11 +127,11 @@ struct ContentView: View {
     private var topBar: some View {
         HStack(spacing: 10) {
             Menu {
-                ForEach([GameViewModel.Difficulty.easy, .medium, .hard], id: \.self) { d in
-                    Button(d.label) { viewModel.setDifficulty(d) }
-                }
+                Button("Easy")   { viewModel.setDifficulty(.easy) }   .keyboardShortcut("1", modifiers: .command)
+                Button("Medium") { viewModel.setDifficulty(.medium) } .keyboardShortcut("2", modifiers: .command)
+                Button("Hard")   { viewModel.setDifficulty(.hard) }   .keyboardShortcut("3", modifiers: .command)
                 Divider()
-                Button("Custom…") { showingCustomSheet = true }
+                Button("Custom…") { showingCustomSheet = true } .keyboardShortcut("0", modifiers: .command)
             } label: {
                 HStack(spacing: 4) {
                     Text(viewModel.difficulty.label)
@@ -164,6 +164,8 @@ struct ContentView: View {
             }
             .buttonStyle(.plain)
             .glassEffect(.regular.interactive(), in: Circle())
+            .keyboardShortcut("m", modifiers: .command)
+            .accessibilityLabel(muted ? "Unmute" : "Mute")
         }
     }
 
@@ -175,6 +177,9 @@ struct ContentView: View {
                 value: max(0, viewModel.mineCount - viewModel.flagsPlaced)
             )
             .glassEffect(.regular, in: Capsule())
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Mines remaining")
+            .accessibilityValue("\(max(0, viewModel.mineCount - viewModel.flagsPlaced))")
             Spacer(minLength: 0)
             Button(action: viewModel.resetGame) {
                 Text(faceEmoji)
@@ -184,6 +189,9 @@ struct ContentView: View {
             }
             .buttonStyle(.plain)
             .glassEffect(.regular.interactive(), in: Circle())
+            .keyboardShortcut("r", modifiers: .command)
+            .accessibilityLabel("New game")
+            .accessibilityValue(faceAccessibilityValue)
             Spacer(minLength: 0)
             counter(
                 icon: "timer",
@@ -191,6 +199,9 @@ struct ContentView: View {
                 value: viewModel.elapsedTime
             )
             .glassEffect(.regular, in: Capsule())
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Elapsed time")
+            .accessibilityValue("\(viewModel.elapsedTime) seconds")
         }
     }
 
@@ -214,6 +225,14 @@ struct ContentView: View {
         case .playing: "🙂"
         case .won:     "😎"
         case .lost:    "😵"
+        }
+    }
+
+    private var faceAccessibilityValue: String {
+        switch viewModel.gameState {
+        case .playing: "Game in progress"
+        case .won:     "You won"
+        case .lost:    "Game over"
         }
     }
 
