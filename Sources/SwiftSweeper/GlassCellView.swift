@@ -25,6 +25,7 @@ struct GlassCellView: View {
                     .frame(width: size, height: size)
                     .overlay { focusRing(r) }
                     .glassEffect(.regular.interactive().tint(.white.opacity(0.18)), in: r)
+                    .id(colorScheme)
             }
         }
         .font(.system(size: size * contentScale))
@@ -68,7 +69,7 @@ struct GlassCellView: View {
         // Dark mode keeps the dark glass cell; light mode lightens to a
         // near-classic-Minesweeper gray so the classic palette reads correctly.
         colorScheme == .dark ? Color.black.opacity(0.45)
-                             : Color(red: 0.75, green: 0.75, blue: 0.76)
+                             : Color(red: 0.64, green: 0.64, blue: 0.66)
     }
 
     private var numberColor: Color {
