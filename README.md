@@ -1,21 +1,29 @@
 # SwiftSweeper
 
-A native macOS Minesweeper that respects the classic game and embraces Liquid Glass. Pure SwiftUI, no ads, no in-app purchases.
+**The best Minesweeper on Mac.** Native SwiftUI, Liquid Glass, faithful to the original — no ads, no in-app purchases, no telemetry, no nonsense.
 
 <p align="center">
   <img src="docs/screenshot.png" alt="SwiftSweeper on macOS" width="420">
 </p>
 
+## Why this is the best Minesweeper on Mac
+
+- **Truly native.** Pure SwiftUI / AppKit. Boots instantly, lives in `/Applications`, gets a real menu bar with standard shortcuts. Not an Electron port, not a web wrapper, not a port of an iOS app stretched sideways.
+- **Liquid Glass, done right.** The HUD, difficulty menu, mute toggle, and game-over card are all real Liquid Glass surfaces — and the win/loss card morphs into a top pill via a container-transform animation so you can see the final board.
+- **Classic-faithful, pixel for pixel.** Number colors match the original Windows Minesweeper RGB values in light mode and preserve the same hue identities with lifted lightness in dark mode. Chord-click works exactly like it did in 1990.
+- **Full keyboard play.** Arrow keys move a focus ring, Space reveals, F flags, Return chords, R starts a new game. No mouse required. The focus ring auto-hides the moment you touch the trackpad.
+- **Mouse play that doesn't drop clicks.** Trackpad clicks are dispatched through an app-level `NSEvent` monitor to sidestep a SwiftUI/Liquid-Glass quirk where rapid clicks get silently swallowed. Every click counts.
+- **Persistent stats.** Best time, total wins, total games, win rate — all saved via `@AppStorage`.
+- **Accessible.** VoiceOver labels on the HUD, standard focus ring on controls.
+- **Zero junk.** No ads. No IAP. No accounts. No network calls. Source is under 1,500 lines and fully unit-tested for the game-logic layer.
+
 ## Features
 
-- **Classic-faithful number palette.** Light mode uses the original Windows Minesweeper RGB values; dark mode preserves the same hue identities with lifted lightness.
 - **Difficulty:** Easy (9×9 / 10), Medium (13×13 / 25), Hard (16×16 / 45), and a Custom sheet for any board from 5×5 up to 30×30.
 - **Chord-click.** Hold left + right on a revealed numbered cell whose flag count matches the number to reveal every non-flagged neighbor. Mis-flag and you lose, just like the original.
-- **Full keyboard control.** Arrow keys move a focus ring; Space reveals; F flags; Return chords; Enter / ⌘R starts a new game.
+- **Game-over peek.** Win or lose, hit the chevron (or press `B`) to morph the result card into a small glass pill at the top — the board stays visible behind it. Tap the pill to expand the card back.
 - **Standard macOS menu bar** with shortcuts for new game, difficulty, mute.
 - **Sound.** Funk on win, Bottle on loss, gated by a mute toggle.
-- **Persistent stats:** best time, total wins, win rate, total games.
-- **Accessibility:** VoiceOver labels for the HUD; OS focus ring on standard controls.
 
 ## Requirements
 
@@ -59,6 +67,7 @@ make clean          # remove build artifacts
 | F | Flag focused cell |
 | Return | Chord (or new game from the game-over screen) |
 | R | New game |
+| B | After game-over: toggle the result card between full card and top pill |
 
 ### Menu bar shortcuts
 
