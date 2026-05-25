@@ -19,6 +19,8 @@ struct ContentView: View {
     @State private var focusedCol: Int = 0
     @State private var usingKeyboard: Bool = false
     @FocusState private var boardFocused: Bool
+    @State private var gameOverCollapsed: Bool = false
+    @Namespace private var glassNamespace
     @AppStorage("customRows")  private var storedCustomRows: Int = 12
     @AppStorage("customCols")  private var storedCustomCols: Int = 12
     @AppStorage("customMines") private var storedCustomMines: Int = 20
@@ -38,17 +40,8 @@ struct ContentView: View {
             .fixedSize()
 
             if viewModel.gameState != .playing {
-                GameOverView(
-                    didWin: viewModel.gameState == .won,
-                    elapsedTime: viewModel.elapsedTime,
-                    bestTime: bestTime,
-                    totalWins: totalWins,
-                    totalGames: totalGames,
-                    isNewBest: isNewBest,
-                    resetAction: viewModel.resetGame
-                )
-                .transition(.opacity.combined(with: .scale))
-                .zIndex(1)
+                gameOverOverlay
+                    .zIndex(1)
             }
         }
         .focusable()
@@ -97,6 +90,13 @@ struct ContentView: View {
             return .handled
         }
         .onKeyPress("r")         { viewModel.resetGame(); usingKeyboard = true; return .handled }
+        .onKeyPress("b")         {
+            if viewModel.gameState != .playing {
+                collapseGameOver(!gameOverCollapsed)
+                return .handled
+            }
+            return .ignored
+        }
         .sheet(isPresented: $showingCustomSheet) {
             CustomBoardSheet(viewModel: viewModel)
         }
@@ -110,6 +110,7 @@ struct ContentView: View {
         .onChange(of: viewModel.customCols)  { _, v in storedCustomCols  = v }
         .onChange(of: viewModel.customMines) { _, v in storedCustomMines = v }
         .onChange(of: viewModel.gameState) { _, newState in
+            gameOverCollapsed = false
             switch newState {
             case .won:
                 totalGames += 1
@@ -284,6 +285,75 @@ struct ContentView: View {
         ClickDispatcher.shared.cellSpacing = 2
         ClickDispatcher.shared.gridFrameInWindowTL = frameInGlobal
         ClickDispatcher.shared.window = window
+    }
+
+    private var gameOverOverlay: some View {
+        let didWin = viewModel.gameState == .won
+        let collapsed = gameOverCollapsed
+        let cornerRadius: CGFloat = collapsed ? topBarHeight / 2 : 18
+
+        return ZStack {
+            if collapsed {
+                gameOverPillContent(didWin: didWin)
+                    .transition(.opacity)
+            } else {
+                GameOverView(
+                    didWin: didWin,
+                    elapsedTime: viewModel.elapsedTime,
+                    bestTime: bestTime,
+                    totalWins: totalWins,
+                    totalGames: totalGames,
+                    isNewBest: isNewBest,
+                    resetAction: viewModel.resetGame,
+                    collapseAction: { collapseGameOver(true) }
+                )
+                .transition(.opacity)
+            }
+        }
+        .padding(.horizontal, collapsed ? 14 : 26)
+        .padding(.vertical, collapsed ? 0 : 22)
+        .frame(height: collapsed ? topBarHeight : nil)
+        .glassEffect(
+            collapsed
+                ? .regular.interactive().tint(didWin ? .green : .red)
+                : .regular.tint(.clear),
+            in: RoundedRectangle(cornerRadius: cornerRadius)
+        )
+        .contentShape(RoundedRectangle(cornerRadius: cornerRadius))
+        .onTapGesture {
+            if collapsed { collapseGameOver(false) }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: collapsed ? .top : .center)
+        .padding(.top, collapsed ? outerPadding + 4 : 0)
+    }
+
+    private func gameOverPillContent(didWin: Bool) -> some View {
+        HStack(spacing: 8) {
+            Text(didWin ? "🎉" : "💥")
+                .font(.system(size: 15))
+            Text(didWin ? "Won" : "Lost")
+                .font(.system(.callout, design: .rounded).weight(.semibold))
+                .foregroundStyle(.primary)
+            Text(formatTimePill(viewModel.elapsedTime))
+                .font(.system(.callout, design: .rounded))
+                .foregroundStyle(.secondary)
+                .monospacedDigit()
+            Image(systemName: "chevron.down")
+                .font(.system(size: 9, weight: .bold))
+                .foregroundStyle(.secondary)
+        }
+        .help("Show game summary (B)")
+    }
+
+    private func collapseGameOver(_ collapsed: Bool) {
+        withAnimation(.spring(response: 0.5, dampingFraction: 0.85)) {
+            gameOverCollapsed = collapsed
+        }
+    }
+
+    private func formatTimePill(_ s: Int) -> String {
+        let m = s / 60, r = s % 60
+        return m > 0 ? String(format: "%d:%02d", m, r) : "\(r)s"
     }
 
     private func cellView(row: Int, col: Int) -> some View {

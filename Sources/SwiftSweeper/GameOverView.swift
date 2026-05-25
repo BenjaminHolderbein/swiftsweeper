@@ -8,6 +8,7 @@ struct GameOverView: View {
     let totalGames: Int
     let isNewBest: Bool
     let resetAction: () -> Void
+    let collapseAction: () -> Void
 
     private var winPctText: String {
         guard totalGames > 0 else { return "—" }
@@ -16,6 +17,23 @@ struct GameOverView: View {
     }
 
     var body: some View {
+        ZStack(alignment: .topTrailing) {
+            cardBody
+            Button(action: collapseAction) {
+                Image(systemName: "chevron.up")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 24, height: 24)
+                    .background(Color.primary.opacity(0.08), in: Circle())
+                    .contentShape(Circle())
+            }
+            .buttonStyle(.plain)
+            .help("Peek at the board")
+            .offset(x: -2, y: 2)
+        }
+    }
+
+    private var cardBody: some View {
         VStack(spacing: 12) {
             Text(didWin ? "🎉" : "💥").font(.system(size: 36))
             Text(didWin ? "You won" : "Boom")
@@ -30,7 +48,7 @@ struct GameOverView: View {
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
-                .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 10))
+                .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 10))
 
                 if isNewBest {
                     Label("New best time", systemImage: "trophy.fill")
@@ -47,12 +65,10 @@ struct GameOverView: View {
                     .contentShape(Capsule())
             }
             .buttonStyle(.plain)
-            .glassEffect(.regular.interactive().tint(didWin ? .green : .red), in: Capsule())
+            .background((didWin ? Color.green : Color.red).opacity(0.85), in: Capsule())
+            .foregroundStyle(.white)
             .keyboardShortcut(.defaultAction)
         }
-        .padding(.vertical, 22)
-        .padding(.horizontal, 26)
-        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 18))
     }
 
     private func statRow(label: String, value: String) -> some View {
