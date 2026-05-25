@@ -8,7 +8,6 @@ struct GameOverView: View {
     let totalGames: Int
     let isNewBest: Bool
     let resetAction: () -> Void
-    let collapseAction: () -> Void
 
     private var winPctText: String {
         guard totalGames > 0 else { return "—" }
@@ -17,23 +16,6 @@ struct GameOverView: View {
     }
 
     var body: some View {
-        ZStack(alignment: .topTrailing) {
-            cardBody
-            Button(action: collapseAction) {
-                Image(systemName: "chevron.up")
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 24, height: 24)
-                    .background(Color.primary.opacity(0.08), in: Circle())
-                    .contentShape(Circle())
-            }
-            .buttonStyle(.plain)
-            .help("Peek at the board")
-            .offset(x: -2, y: 2)
-        }
-    }
-
-    private var cardBody: some View {
         VStack(spacing: 12) {
             Text(didWin ? "🎉" : "💥").font(.system(size: 36))
             Text(didWin ? "You won" : "Boom")

@@ -304,8 +304,7 @@ struct ContentView: View {
                     totalWins: totalWins,
                     totalGames: totalGames,
                     isNewBest: isNewBest,
-                    resetAction: viewModel.resetGame,
-                    collapseAction: { collapseGameOver(true) }
+                    resetAction: viewModel.resetGame
                 )
                 .transition(.opacity)
             }
@@ -319,6 +318,22 @@ struct ContentView: View {
                 : .regular.tint(.clear),
             in: RoundedRectangle(cornerRadius: cornerRadius)
         )
+        .overlay(alignment: .topTrailing) {
+            if !collapsed {
+                Button { collapseGameOver(true) } label: {
+                    Image(systemName: "chevron.up")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 22, height: 22)
+                        .background(Color.primary.opacity(0.08), in: Circle())
+                        .contentShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .help("Peek at the board (B)")
+                .padding(10)
+                .transition(.opacity)
+            }
+        }
         .contentShape(RoundedRectangle(cornerRadius: cornerRadius))
         .onTapGesture {
             if collapsed { collapseGameOver(false) }
